@@ -22,10 +22,10 @@ class UserFile(db.Model):
     email = db.Column(db.String(100), db.ForeignKey('user.email'), nullable=False)
     file_id = db.Column(db.String(100))
 
-class Device(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(100), db.ForeignKey('user.email'), nullable=False)
-    device_id = db.Column(db.String(100))
+#class Device(db.Model):
+#    id = db.Column(db.Integer, primary_key=True)
+#    email = db.Column(db.String(100), db.ForeignKey('user.email'), nullable=False)
+#    device_id = db.Column(db.String(100))
 
 # Ensure the database tables are created within the application context
 with app.app_context():
@@ -36,7 +36,7 @@ def add_user():
     data = request.json
     name = data.get('name')
     email = data.get('email')
-    device_id = data.get('device_id')
+    #device_id = data.get('device_id')
 
     if not name or not email:
         return jsonify({"error": "Name and email are required"}), 400
@@ -44,21 +44,21 @@ def add_user():
     user = User.query.filter_by(email=email).first()
     if user:
         # User already exists, check device ID
-        existing_device = Device.query.filter_by(email=email, device_id=device_id).first()
-        if existing_device:
-            return jsonify({"message": "User already exists with the given device ID"}), 409
-        else:
-            new_device = Device(email=email, device_id=device_id)
-            db.session.add(new_device)
+        #existing_device = Device.query.filter_by(email=email, device_id=device_id).first()
+        #if existing_device:
+        return jsonify({"message": "User already exists"}), 409
+        #else:
+        #    new_device = Device(email=email, device_id=device_id)
+        #    db.session.add(new_device)
     else:
         # Create new user and add device ID
         new_user = User(name=name, email=email)
         db.session.add(new_user)
-        new_device = Device(email=email, device_id=device_id)
-        db.session.add(new_device)
+        #new_device = Device(email=email, device_id=device_id)
+        #db.session.add(new_device)
 
     db.session.commit()
-    return jsonify({"message": "User and device added/updated successfully"}), 201
+    return jsonify({"message": "User and device added successfully"}), 201
 
 @app.route('/user/<email>/file', methods=['POST'])
 def upload_file(email):
@@ -91,14 +91,14 @@ def get_user_by_email(email):
     user_files = UserFile.query.filter_by(email=email).all()
     file_ids = [user_file.file_id for user_file in user_files]
 
-    user_devices = Device.query.filter_by(email=email).all()
-    device_ids = [device.device_id for device in user_devices]
+    #user_devices = Device.query.filter_by(email=email).all()
+    #device_ids = [device.device_id for device in user_devices]
 
     return jsonify({
         "name": user.name,
         "email": user.email,
-        "file_ids": file_ids,
-        "device_ids": device_ids
+        "file_ids": file_ids
+        #"device_ids": device_ids
     }), 200
 
 @app.route('/user', methods=['GET'])
@@ -108,9 +108,9 @@ def list_users():
     for user in users:
         user_files = UserFile.query.filter_by(email=user.email).all()
         file_ids = [user_file.file_id for user_file in user_files]
-        user_devices = Device.query.filter_by(email=user.email).all()
-        device_ids = [device.device_id for device in user_devices]
-        user_list.append({"name": user.name, "email": user.email, "file_ids": file_ids, "device_ids": device_ids})
+        #user_devices = Device.query.filter_by(email=user.email).all()
+        #device_ids = [device.device_id for device in user_devices]
+        user_list.append({"name": user.name, "email": user.email, "file_ids": file_ids})
     return jsonify(user_list), 200
 
 @app.route('/user/<email>/file', methods=['GET'])
