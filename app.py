@@ -3,13 +3,37 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
-app.config['UPLOAD_FOLDER'] = 'uploads'
-db = SQLAlchemy(app)
 
-# Create uploads folder if not exists
+# Define the base directory
+base_directory = os.path.abspath(os.path.dirname(__file__))
+
+# Define the data directory and ensure it exists
+data_directory = os.path.join(base_directory, 'data')
+if not os.path.exists(data_directory):
+    os.makedirs(data_directory)
+
+# Configure the instance path and ensure it exists
+instance_directory = os.path.join(data_directory, 'instance')
+if not os.path.exists(instance_directory):
+    os.makedirs(instance_directory)
+
+# Configure the database and upload paths
+db_path = os.path.join(instance_directory, 'data.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+app.config['UPLOAD_FOLDER'] = os.path.join(data_directory, 'uploads')
+
+# Ensure the upload folder exists
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
+
+# Print paths for debugging
+print(f"Base Directory: {base_directory}")
+print(f"Data Directory: {data_directory}")
+print(f"Instance Directory: {instance_directory}")
+print(f"Database Path: {db_path}")
+print(f"Upload Folder: {app.config['UPLOAD_FOLDER']}")
+
+db = SQLAlchemy(app)
 
 # Models
 class User(db.Model):
@@ -22,43 +46,31 @@ class UserFile(db.Model):
     email = db.Column(db.String(100), db.ForeignKey('user.email'), nullable=False)
     file_id = db.Column(db.String(100))
 
-#class Device(db.Model):
-#    id = db.Column(db.Integer, primary_key=True)
-#    email = db.Column(db.String(100), db.ForeignKey('user.email'), nullable=False)
-#    device_id = db.Column(db.String(100))
-
 # Ensure the database tables are created within the application context
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("Database tables created successfully.")
+    except Exception as e:
+        print(f"Error creating database tables: {e}")
 
 @app.route('/user', methods=['POST'])
 def add_user():
     data = request.json
     name = data.get('name')
     email = data.get('email')
-    #device_id = data.get('device_id')
 
     if not name or not email:
         return jsonify({"error": "Name and email are required"}), 400
 
     user = User.query.filter_by(email=email).first()
     if user:
-        # User already exists, check device ID
-        #existing_device = Device.query.filter_by(email=email, device_id=device_id).first()
-        #if existing_device:
         return jsonify({"message": "User already exists"}), 409
-        #else:
-        #    new_device = Device(email=email, device_id=device_id)
-        #    db.session.add(new_device)
     else:
-        # Create new user and add device ID
         new_user = User(name=name, email=email)
         db.session.add(new_user)
-        #new_device = Device(email=email, device_id=device_id)
-        #db.session.add(new_device)
-
-    db.session.commit()
-    return jsonify({"message": "User and device added successfully"}), 201
+        db.session.commit()
+        return jsonify({"message": "User added successfully"}), 201
 
 @app.route('/user/<email>/file', methods=['POST'])
 def upload_file(email):
@@ -68,7 +80,6 @@ def upload_file(email):
         return jsonify({"error": "Email and file are required"}), 400
 
     user = User.query.filter_by(email=email).first()
-
     if not user:
         return jsonify({"error": "User not found"}), 404
 
@@ -91,14 +102,10 @@ def get_user_by_email(email):
     user_files = UserFile.query.filter_by(email=email).all()
     file_ids = [user_file.file_id for user_file in user_files]
 
-    #user_devices = Device.query.filter_by(email=email).all()
-    #device_ids = [device.device_id for device in user_devices]
-
     return jsonify({
         "name": user.name,
         "email": user.email,
         "file_ids": file_ids
-        #"device_ids": device_ids
     }), 200
 
 @app.route('/user', methods=['GET'])
@@ -108,8 +115,6 @@ def list_users():
     for user in users:
         user_files = UserFile.query.filter_by(email=user.email).all()
         file_ids = [user_file.file_id for user_file in user_files]
-        #user_devices = Device.query.filter_by(email=user.email).all()
-        #device_ids = [device.device_id for device in user_devices]
         user_list.append({"name": user.name, "email": user.email, "file_ids": file_ids})
     return jsonify(user_list), 200
 
