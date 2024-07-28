@@ -129,5 +129,41 @@ def list_files_for_user(email):
 
     return jsonify({"email": email, "file_ids": file_ids}), 200
 
+@app.route('/user/<email>', methods=['DELETE'])
+def delete_user_by_email(email):
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Delete associated files
+    user_files = UserFile.query.filter_by(email=email).all()
+    for user_file in user_files:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], user_file.file_id)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        db.session.delete(user_file)
+
+    db.session.delete(user)
+    db.session.commit()
+
+    return jsonify({"message": f"User with email {email} and associated files deleted successfully"}), 200
+
+@app.route('/user', methods=['DELETE'])
+def delete_all_users():
+    users = User.query.all()
+    for user in users:
+        user_files = UserFile.query.filter_by(email=user.email).all()
+        for user_file in user_files:
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], user_file.file_id)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            db.session.delete(user_file)
+
+        db.session.delete(user)
+    
+    db.session.commit()
+
+    return jsonify({"message": "All users and associated files deleted successfully"}), 200
+
 if __name__ == '__main__':
     app.run(debug=True)
